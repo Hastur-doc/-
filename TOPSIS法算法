@@ -1,0 +1,103 @@
+import numpy as np
+#input输入的是字符串，需要把字符转换，int为整数，float为浮点数
+#输入参评数目和指标数目，并将输入的字符串转化为数值
+print('请输入参评数目：')
+n=int(input())#接收参评数目
+print('请输入指标数目：')
+m=int(input())#接收指标数目
+
+#接收用户输入的类型矩阵，该矩阵指示了每个指标的类型（极大型、极小型等）
+print("请输入类型矩阵，1：极大型，2：极小型，3：中间型，4：区间型")
+#将输入的字符串按空格分割，形成列表(split中间有空格)
+kind=input().split(' ')
+
+#接收用户输入的矩阵并转换为numpy数组
+print('请输入矩阵：')
+A=np.zeros(shape=(n,m))#初始化一个n行m列的全零矩阵A
+for i in range(n):
+    A[i]=input().split(' ')#接收每行的数据
+#map函数
+    A[i]=list(map(float,A[i]))#将接收到的字符串列表转化为浮点数列表
+print('输入矩阵为：\n{}'.format(A))#打印输入的矩阵A
+
+#极小型指标转化为极大值指标的函数
+def minTomax(maxx,x):
+    x=list(x)#将输入的指标数据转换为列表
+    ans = [[(maxx-e)] for e in x]#计算每个指标值与最优值之间的绝对差
+    return np.array(ans)#将列表转换为numpy数组并返回
+#中间型指标转化为极大型指标的函数
+def midTomax(bestx,x):
+    x=list(x)
+    h=[abs(e-bestx) for e in x]
+    M=max(h)#找到最大的差值
+    if M==0:
+        M=1#防止最大差值为0的情况
+    ans=[[1-e/M] for e in h]#计算每个差值占最大差值的比例，并从1中减去，得到新指标
+    return np.array(ans)
+#区间型指标转化为极大型指标的函数
+def regTomax(lowx,highx,x):
+    x=list(x)
+    M=max(lowx-min(x),max(x)-highx)
+    if M==0:
+        M=1#防止最大差值为0的情况
+    ans=[]
+    for i in range(len(x)):
+        if x[i]<lowx:
+            ans.append([1-(lowx-x[i])/M])#如果指标值小于下限，则计算与下限的距离比例
+        elif x[i]>highx:
+            ans.append([1-(x[i]-highx)/M])#如果指标值大于上限，则计算与上限的距离比例
+        else:
+            ans.append([1])#如果指标值在区间内，则直接取为1
+    return np.array(ans)#返回处理后的numpy数组
+#统一指标类型，将所有指标转化为极大型指标
+X=np.zeros(shape=(n,1))
+for i in range(m):
+    if kind[i]=='1':#如果当前指标为极大型，则直接使用原值
+        v=np.array(A[:,1])
+    elif kind[i]=='2':#如果当前指标为极小型，则调用minTomax函数转换
+        maxA=max(A[:,1])
+        v=minTomax(maxA,A[:,1])
+    elif kind[i]=='3':#如果当前指标为中间型，则调用midTomax函数转换
+        print('类型三：请输入最优值：')
+        bestA=eval(input())
+        v=minTomax(bestA,A[:,1])
+    elif kind[i]=='4':#如果当前指标为区间型，则调用regTomax函数转换
+        print('类型四：请输入区间[a,b]值a:')
+        lowA=eval(input())
+        print('类型四：请输入区间[a,b]值b:')
+        highA=eval(input())
+        v=regTomax(lowA,highA,A[:,i])
+    if i==0:
+        X=v.reshape(-1,1)#极大型指标，则直接替换X数组
+    else:
+        X=np.hstack([X,v.reshape(-1,1)])#如果不是第一个指标，则将新指标列拼接到X数组上
+    print('统一指标后矩阵为：\n{}'.format(X))  # 打印处理后的矩阵X
+#reshape函数，改变数组形状的函数，允许你将数组重新组织成不同形状，而不改变数组中的数据、
+#按照转化后的数组为一长行，例如【1，2，3，4，5，6】，而reshape就是把这个数组换个形状，变成我们最开始的矩阵
+#reshape(-1,1)，即把数组转换为列向量。其中-1为自动识别需要的行数，第二个数为列数
+#hstack函数,用于在水平方向（沿着列）将多个数组堆叠在一起
+#hstack函数，例hstack[arr1,arr2],
+#arr1=[[1],[2],[3]],arr2=[[4],[5],[6]],处理后为[[1 4][2 5][3 6]]
+
+#对统一指标后的矩阵X进行标准化处理
+X=X.astype('float')#确保X矩阵的数据类型为浮点数
+for j in range(m):
+    X[:,j]=X[:,j]/np.sqrt(sum(X[:,j]**2))#对每一列数据进行归一化处理，即除以该列的欧几里得范数
+print('标准化矩阵：\n{}'.format(X))#打印标准化后的矩阵X
+
+#最大值最小值距离的计算
+x_max=np.max(X,axis=0)#计算标准化矩阵每列的最大值
+x_min=np.min(X,axis=0)#计算标准化矩阵每列的最小值
+d_z=np.sqrt(np.sum(np.square((X-np.tile(x_max,reps=(n,1)))),axis=1))#计算每个参评对象与最优情况的距离d+
+d_f=np.sqrt(np.sum(np.square((X-np.tile(x_min,reps=(n,1)))),axis=1))#计算每个参评对象与最优情况的距离d-
+print('每个指标的最大值',x_max)
+print('每个指标的最小值',x_min)
+print('d+向量',d_z)
+print('d-向量',d_f)
+#np.square每个元素都开根号
+
+#计算每个参评对象的得分排名
+s=d_f/(d_z+d_f)#根据d+和d-计算得分s。其中s接近于1，则表示更优，接近0则表示较劣
+Score=100*s/sum(s)#将得分s转换为百分制，便于比较
+for i in range(len(Score)):
+    print(f'第{i+1}个标准化百分制得分为：{Score[i]}')#打印每个参评对象的得分
